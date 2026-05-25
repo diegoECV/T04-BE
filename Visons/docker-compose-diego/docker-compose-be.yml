@@ -30,7 +30,7 @@ services:
       #   jdbc:sqlserver://IP_PRIVADA_DB:1433;databaseName=Visons;encrypt=true;trustServerCertificate=true
       # Para tu practica de 2 instancias, aqui va la IP privada de la instancia DB:
       #   DB_URL: "jdbc:sqlserver://IP_PRIVADA_DB:1433;databaseName=Visons;encrypt=true;trustServerCertificate=true"
-      DB_URL: "jdbc:sqlserver://mssql-server:1433;databaseName=Visons;encrypt=true;trustServerCertificate=true"
+      DB_URL: "jdbc:sqlserver://IP_PRIVADA_DB:1433;databaseName=Visons;encrypt=true;trustServerCertificate=true"
       DB_USER: "sa"
       DB_PASSWORD: "Admin12345!"
       DB_DRIVER: "com.microsoft.sqlserver.jdbc.SQLServerDriver"
@@ -49,12 +49,12 @@ services:
 
       # URL publica del frontend/login:
       # - Cambiala en EC2 si el frontend ya no corre en localhost.
-      CLIENT_LOGIN_URL: "${CLIENT_LOGIN_URL:-http://localhost:4200/login}"
+      CLIENT_LOGIN_URL: "${CLIENT_LOGIN_URL:-http://localhost/login}"
 
       # Origenes permitidos del frontend:
       # - Aqui va la URL exacta desde donde se abre Angular en el navegador.
       # - Si Angular abre en http://TU_IP_PUBLICA, coloca esa URL.
-      APP_CORS_ALLOWED_ORIGINS: "${APP_CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://localhost:9090}"
+      APP_CORS_ALLOWED_ORIGINS: "${APP_CORS_ALLOWED_ORIGINS:-http://localhost,http://localhost:9090}"
 
       MAIL_HOST: "${MAIL_HOST:-smtp.gmail.com}"
       MAIL_PORT: "${MAIL_PORT:-587}"
