@@ -1,34 +1,80 @@
-# docker compose -f docker-compose-db.yml up -d
-# docker compose -f docker-compose-db.yml down
+# docker compose -f docker-compose-diego/docker-compose-db.yml up -d
+# docker compose -f docker-compose-diego/docker-compose-db.yml down
+#
+# Si backend y DB estan en la misma EC2/red Docker, el backend debe usar:
+#   mssql-server:1433
+# No uses la IP publica de la EC2 para conectar backend -> DB.
 
 services:
   mssql-server:
-    image: diego5621/sql-server:2022-latest
-    container_name: visons-mssql
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: visons-mssql-diego
     environment:
       ACCEPT_EULA: "Y"
-      SA_PASSWORD: "Admin12345!"
+      MSSQL_SA_PASSWORD: "Admin12345!"
       MSSQL_PID: "Express"
     ports:
-      - "1434:1433"
+      # Puerto publico/local para entrar a SQL Server desde fuera del contenedor.
+      # Normalmente NO necesitas poner una IP aqui.
+      # En EC2 evita abrir 1433 a todo internet; si lo abres, que sea solo a tu IP.
+      - "${MSSQL_HOST_PORT:-1433}:1433"
     volumes:
-      - mssql_data:/var/opt/mssql
-      - ../src/main/resources/sql:/docker-entrypoint-initdb.d
+      - mssql_data_diego:/var/opt/mssql
     networks:
-      - visons-network
+      - visons-network-diego
     healthcheck:
-      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "Admin12345!", "-Q", "SELECT 1", "-No", "-C"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/1433'"]
       interval: 15s
       timeout: 10s
-      retries: 10
+      retries: 20
       start_period: 60s
     restart: unless-stopped
 
+  mssql-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: visons-mssql-init-diego
+    depends_on:
+      mssql-server:
+        condition: service_healthy
+    environment:
+      DB_PASSWORD: "Admin12345!"
+    volumes:
+      - ../src/main/resources/sql:/scripts:ro
+    networks:
+      - visons-network-diego
+    command:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+
+        SQLCMD="/opt/mssql-tools18/bin/sqlcmd"
+        if [ ! -x "$$SQLCMD" ]; then
+          SQLCMD="/opt/mssql-tools/bin/sqlcmd"
+        fi
+
+        echo "Esperando SQL Server..."
+        until "$$SQLCMD" -S mssql-server -U sa -P "$$DB_PASSWORD" -Q "SELECT 1" >/dev/null 2>&1; do
+          sleep 5
+        done
+
+        STATUS=$$("$$SQLCMD" -S mssql-server -U sa -P "$$DB_PASSWORD" -h -1 -W -Q "SET NOCOUNT ON; IF DB_ID(N'Visons') IS NULL SELECT 'EMPTY' ELSE IF EXISTS (SELECT 1 FROM Visons.sys.tables WHERE name = N'USERS') SELECT 'READY' ELSE SELECT 'EMPTY'" | tr -d '\r')
+
+        if [ "$$STATUS" = "READY" ]; then
+          echo "Base Visons ya inicializada."
+          exit 0
+        fi
+
+        echo "Inicializando base Visons..."
+        "$$SQLCMD" -S mssql-server -U sa -P "$$DB_PASSWORD" -i /scripts/completo.sql
+        echo "Base Visons inicializada."
+    restart: "no"
+
 volumes:
-  mssql_data:
+  mssql_data_diego:
     driver: local
 
 networks:
-  visons-network:
-    name: visons-network
+  visons-network-diego:
+    name: visons-network-diego
     driver: bridge

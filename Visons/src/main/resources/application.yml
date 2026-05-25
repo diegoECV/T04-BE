@@ -30,7 +30,11 @@ app:
   # Store uploaded profile images inside the project's resources so they are
   # served as static files. Path is relative to the project root.
   upload-dir: src/main/resources/static/uploads/profile-images
+  # No pongas la IP publica aqui. Cambia CLIENT_LOGIN_URL desde Docker/EC2.
   client-login-url: ${CLIENT_LOGIN_URL:http://localhost:4200/login}
+  cors:
+    # No pongas la IP publica fija aqui. Cambia APP_CORS_ALLOWED_ORIGINS desde Docker/EC2.
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:9090}
   mail:
     from: ${MAIL_FROM:no-reply@visons.local}
 

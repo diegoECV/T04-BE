@@ -3,7 +3,6 @@ package vallegrande.edu.pe.visons.rest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,7 +16,6 @@ import vallegrande.edu.pe.visons.service.ProductMovementService;
 @RestController
 @Validated
 @RequestMapping("/v1/api/product-movements")
-@CrossOrigin(origins = "http://localhost:4200")
 public class ProductMovementRest {
 
     private final ProductMovementService productMovementService;

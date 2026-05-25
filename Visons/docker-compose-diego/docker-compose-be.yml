@@ -1,39 +1,79 @@
-# docker compose -f docker-compose-be.yml up -d
-# docker compose -f docker-compose-be.yml down
+# docker compose -f docker-compose-diego/docker-compose-be.yml up --build -d
+# docker compose -f docker-compose-diego/docker-compose-be.yml down
+#
+# Si la DB esta en otra instancia EC2:
+# - Levanta docker-compose-db.yml en la instancia de DB.
+# - En esta instancia del backend, cambia SOLO el host de DB_URL por la IP privada
+#   de la instancia DB. Ejemplo:
+#   jdbc:sqlserver://172.31.10.25:1433;databaseName=Visons;encrypt=true;trustServerCertificate=true
+#
+# Si la DB esta en la misma EC2/red Docker que el backend:
+# - Deja DB_URL con mssql-server:1433.
 
 services:
   visons-app:
     build:
       context: ..
       dockerfile: dockerfile-diego/Dockerfile
-    image: diego5621/diegodock:latest
+    image: diego/visons-backend:latest
     container_name: visons-backend-diego
     ports:
-      - "8080:8080"
+      - "${BACKEND_HOST_PORT:-9090}:9090"
     environment:
-      DB_URL: "jdbc:sqlserver://visons-mssql:1433;databaseName=Visons;encrypt=true;trustServerCertificate=true"
+      # IP/host de la DB:
+      # - Si backend y SQL Server corren con Docker en la misma EC2/red Docker,
+      #   dejalo como mssql-server:1433.
+      # - No uses localhost aqui cuando el backend corre en Docker:
+      #   localhost seria el contenedor del backend, no el contenedor de SQL Server.
+      # - Solo si tu DB esta en otro servidor, cambia mssql-server por la IP privada
+      #   o dominio interno de esa DB. Ejemplo:
+      #   jdbc:sqlserver://IP_PRIVADA_DB:1433;databaseName=Visons;encrypt=true;trustServerCertificate=true
+      # Para tu practica de 2 instancias, aqui va la IP privada de la instancia DB:
+      #   DB_URL: "jdbc:sqlserver://IP_PRIVADA_DB:1433;databaseName=Visons;encrypt=true;trustServerCertificate=true"
+      DB_URL: "jdbc:sqlserver://mssql-server:1433;databaseName=Visons;encrypt=true;trustServerCertificate=true"
       DB_USER: "sa"
       DB_PASSWORD: "Admin12345!"
-      DB_DRIVER: "com.microsoft.sqlserver.jdbc.SQLServerDriver"   # ← faltaba esto
-      PORT: "8080"
-      SERVER_URL: "http://localhost:8080"
-      MAIL_HOST: "smtp.gmail.com"
-      MAIL_PORT: "587"
-      MAIL_USERNAME: "lizeth.quispe@vallegrande.edu.pe"
-      MAIL_PASSWORD: "fecpfmmawlxxdcua"
-      MAIL_SMTP_AUTH: "true"
-      MAIL_SMTP_STARTTLS: "true"
-      MAIL_FROM: "lizeth.quispe@vallegrande.edu.pe"
+      DB_DRIVER: "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+      PORT: "9090"
+
+      # Para EC2 cambia estas variables por tu IP/dominio publico.
+      # Ejemplo:
+      #   BACKEND_HOST_PORT=9090
+      #   SERVER_URL: "http://TU_IP_PUBLICA:9090"
+      #   CLIENT_LOGIN_URL: "http://TU_IP_PUBLICA/login"
+      #   APP_CORS_ALLOWED_ORIGINS: "http://TU_IP_PUBLICA,http://TU_IP_PUBLICA:4200"
+      # IP/URL publica del backend:
+      # - Aqui va la IP publica o dominio donde se vera tu backend desde internet.
+      # - No lo uses para conectar backend -> DB.
+      SERVER_URL: "${SERVER_URL:-http://localhost:9090}"
+
+      # URL publica del frontend/login:
+      # - Cambiala en EC2 si el frontend ya no corre en localhost.
+      CLIENT_LOGIN_URL: "${CLIENT_LOGIN_URL:-http://localhost:4200/login}"
+
+      # Origenes permitidos del frontend:
+      # - Aqui va la URL exacta desde donde se abre Angular en el navegador.
+      # - Si Angular abre en http://TU_IP_PUBLICA, coloca esa URL.
+      APP_CORS_ALLOWED_ORIGINS: "${APP_CORS_ALLOWED_ORIGINS:-http://localhost:4200,http://localhost:9090}"
+
+      MAIL_HOST: "${MAIL_HOST:-smtp.gmail.com}"
+      MAIL_PORT: "${MAIL_PORT:-587}"
+      MAIL_USERNAME: "${MAIL_USERNAME:-}"
+      MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
+      MAIL_SMTP_AUTH: "${MAIL_SMTP_AUTH:-true}"
+      MAIL_SMTP_STARTTLS: "${MAIL_SMTP_STARTTLS:-true}"
+      MAIL_FROM: "${MAIL_FROM:-no-reply@visons.local}"
     networks:
-      - visons-network
+      - visons-network-diego
     restart: on-failure
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/swagger-ui.html"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9090/swagger-ui.html || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 10
       start_period: 180s
 
 networks:
-  visons-network:
-    external: true
+  visons-network-diego:
+    name: visons-network-diego
+    driver: bridge
